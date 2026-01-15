@@ -271,7 +271,7 @@ class ServiceManagerTray:
         # Xdebug toggle (only show if installed)
         if xdebug.is_xdebug_installed():
             self._menu.addSeparator()
-            self._xdebug_action = QAction("Xdebug: ...", self._menu)
+            self._xdebug_action = QAction(QIcon.fromTheme("debug-run"), "Xdebug: ...", self._menu)
             self._xdebug_action.triggered.connect(self._toggle_xdebug)
             self._menu.addAction(self._xdebug_action)
             self._update_xdebug_status()
@@ -281,11 +281,12 @@ class ServiceManagerTray:
         if versions:
             self._menu.addSeparator()
             self._php_version_menu = QMenu("PHP Version", self._menu)
+            self._php_version_menu.setIcon(QIcon.fromTheme("applications-development"))
             self._build_php_version_menu(versions)
             self._menu.addMenu(self._php_version_menu)
 
             # PHP Info action
-            phpinfo_action = QAction("PHP Info", self._menu)
+            phpinfo_action = QAction(QIcon.fromTheme("dialog-information"), "PHP Info", self._menu)
             phpinfo_action.triggered.connect(self._view_phpinfo)
             self._menu.addAction(phpinfo_action)
 
@@ -293,20 +294,21 @@ class ServiceManagerTray:
         if web_logs.has_nginx_logs() or self._systemd.is_service_installed("php-fpm"):
             self._menu.addSeparator()
             logs_menu = QMenu("Web Logs", self._menu)
+            logs_menu.setIcon(QIcon.fromTheme("text-x-log"))
 
             if web_logs.has_nginx_logs():
-                nginx_access_action = QAction("Nginx Access Log", logs_menu)
+                nginx_access_action = QAction(QIcon.fromTheme("text-x-generic"), "Nginx Access Log", logs_menu)
                 nginx_access_action.triggered.connect(self._view_nginx_access_log)
                 logs_menu.addAction(nginx_access_action)
 
-                nginx_error_action = QAction("Nginx Error Log", logs_menu)
+                nginx_error_action = QAction(QIcon.fromTheme("dialog-warning"), "Nginx Error Log", logs_menu)
                 nginx_error_action.triggered.connect(self._view_nginx_error_log)
                 logs_menu.addAction(nginx_error_action)
 
             if self._systemd.is_service_installed("php-fpm"):
                 if web_logs.has_nginx_logs():
                     logs_menu.addSeparator()
-                php_error_action = QAction("PHP Error Log", logs_menu)
+                php_error_action = QAction(QIcon.fromTheme("dialog-error"), "PHP Error Log", logs_menu)
                 php_error_action.triggered.connect(self._view_php_error_log)
                 logs_menu.addAction(php_error_action)
 
@@ -316,6 +318,7 @@ class ServiceManagerTray:
         if vhosts.has_nginx_sites():
             self._menu.addSeparator()
             self._vhosts_menu = QMenu("Virtual Hosts", self._menu)
+            self._vhosts_menu.setIcon(QIcon.fromTheme("network-server"))
             self._build_vhosts_menu()
             self._menu.addMenu(self._vhosts_menu)
 
@@ -324,25 +327,26 @@ class ServiceManagerTray:
         if all_configs:
             self._menu.addSeparator()
             config_menu = QMenu("Config Files", self._menu)
+            config_menu.setIcon(QIcon.fromTheme("preferences-system"))
             self._build_config_menu(config_menu, all_configs)
             self._menu.addMenu(config_menu)
 
         self._menu.addSeparator()
 
         # Refresh action
-        refresh_action = QAction("Refresh Status", self._menu)
+        refresh_action = QAction(QIcon.fromTheme("view-refresh"), "Refresh Status", self._menu)
         refresh_action.triggered.connect(self._refresh_status)
         self._menu.addAction(refresh_action)
 
         self._menu.addSeparator()
 
         # About action
-        about_action = QAction("About", self._menu)
+        about_action = QAction(QIcon.fromTheme("help-about"), "About", self._menu)
         about_action.triggered.connect(self._show_about)
         self._menu.addAction(about_action)
 
         # Quit action
-        quit_action = QAction("Quit", self._menu)
+        quit_action = QAction(QIcon.fromTheme("application-exit"), "Quit", self._menu)
         quit_action.triggered.connect(self._quit)
         self._menu.addAction(quit_action)
 
@@ -386,29 +390,29 @@ class ServiceManagerTray:
         service_menu.addSeparator()
 
         # Start action
-        start_action = QAction("Start", service_menu)
+        start_action = QAction(QIcon.fromTheme("media-playback-start"), "Start", service_menu)
         start_action.triggered.connect(lambda: self._start_service(service.name))
         service_menu.addAction(start_action)
 
         # Stop action
-        stop_action = QAction("Stop", service_menu)
+        stop_action = QAction(QIcon.fromTheme("media-playback-stop"), "Stop", service_menu)
         stop_action.triggered.connect(lambda: self._stop_service(service.name))
         service_menu.addAction(stop_action)
 
         # Restart action
-        restart_action = QAction("Restart", service_menu)
+        restart_action = QAction(QIcon.fromTheme("view-refresh"), "Restart", service_menu)
         restart_action.triggered.connect(lambda: self._restart_service(service.name))
         service_menu.addAction(restart_action)
 
         service_menu.addSeparator()
 
         # View Logs action
-        logs_action = QAction("View Logs", service_menu)
+        logs_action = QAction(QIcon.fromTheme("text-x-log"), "View Logs", service_menu)
         logs_action.triggered.connect(lambda: self._view_logs(service.name))
         service_menu.addAction(logs_action)
 
         # Autostart toggle action
-        autostart_action = QAction("Autostart: ...", service_menu)
+        autostart_action = QAction(QIcon.fromTheme("system-run"), "Autostart: ...", service_menu)
         autostart_action.triggered.connect(lambda: self._toggle_autostart(service.name))
         service_menu.addAction(autostart_action)
 
@@ -660,7 +664,7 @@ class ServiceManagerTray:
                 vh_menu.addAction(domain_action)
 
                 # Open in Browser action
-                browser_action = QAction("Open in Browser", vh_menu)
+                browser_action = QAction(QIcon.fromTheme("web-browser"), "Open in Browser", vh_menu)
                 browser_action.triggered.connect(lambda checked, domain=vh.server_name: self._open_in_browser(domain))
                 vh_menu.addAction(browser_action)
 
@@ -668,16 +672,16 @@ class ServiceManagerTray:
 
             # Enable/Disable action
             if vh.enabled:
-                disable_action = QAction("Disable", vh_menu)
+                disable_action = QAction(QIcon.fromTheme("dialog-cancel"), "Disable", vh_menu)
                 disable_action.triggered.connect(lambda checked, n=vh.name: self._disable_vhost(n))
                 vh_menu.addAction(disable_action)
             else:
-                enable_action = QAction("Enable", vh_menu)
+                enable_action = QAction(QIcon.fromTheme("dialog-ok"), "Enable", vh_menu)
                 enable_action.triggered.connect(lambda checked, n=vh.name: self._enable_vhost(n))
                 vh_menu.addAction(enable_action)
 
             # Delete action
-            delete_action = QAction("Delete", vh_menu)
+            delete_action = QAction(QIcon.fromTheme("edit-delete"), "Delete", vh_menu)
             delete_action.triggered.connect(lambda checked, n=vh.name: self._delete_vhost(n))
             vh_menu.addAction(delete_action)
 
@@ -693,7 +697,7 @@ class ServiceManagerTray:
             self._vhosts_menu.addSeparator()
 
         # New vhost action
-        new_action = QAction("New Virtual Host...", self._vhosts_menu)
+        new_action = QAction(QIcon.fromTheme("list-add"), "New Virtual Host...", self._vhosts_menu)
         new_action.triggered.connect(self._create_new_vhost)
         self._vhosts_menu.addAction(new_action)
 
