@@ -9,7 +9,7 @@ from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QColor, QBrush
 from PyQt6.QtWidgets import (
     QApplication, QMenu, QSystemTrayIcon, QMessageBox,
     QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout,
-    QLabel, QLineEdit, QFormLayout, QCheckBox, QFileDialog
+    QLabel, QLineEdit, QFormLayout, QCheckBox, QFileDialog, QComboBox
 )
 
 from .services import ServiceDefinition, ServiceRegistry, DEFAULT_SERVICES
@@ -74,12 +74,92 @@ class LogsDialog(QDialog):
             self.log_text.moveCursor(self.log_text.textCursor().MoveOperation.End)
 
 
+class UnifiedLogsDialog(QDialog):
+    """Dialog to display logs with a dropdown selector."""
+
+    def __init__(self, log_sources: dict, parent=None):
+        """
+        log_sources: dict of {display_name: (fetch_function, source_label)}
+        """
+        super().__init__(parent)
+        self.log_sources = log_sources
+        self.setWindowTitle("Logs Viewer")
+        self.setMinimumSize(800, 600)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+
+        # Top bar with dropdown
+        top_layout = QHBoxLayout()
+
+        top_layout.addWidget(QLabel("Log:"))
+
+        self.log_selector = QComboBox()
+        self.log_selector.addItems(self.log_sources.keys())
+        self.log_selector.currentTextChanged.connect(self._on_log_changed)
+        top_layout.addWidget(self.log_selector, 1)
+
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setIcon(QIcon.fromTheme("view-refresh"))
+        refresh_btn.clicked.connect(self._on_refresh)
+        top_layout.addWidget(refresh_btn)
+
+        layout.addLayout(top_layout)
+
+        # Source label
+        self.source_label = QLabel()
+        self.source_label.setStyleSheet("color: gray; font-size: 11px;")
+        layout.addWidget(self.source_label)
+
+        # Log text area
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setFontFamily("monospace")
+        layout.addWidget(self.log_text)
+
+        # Bottom buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.close)
+        button_layout.addWidget(close_btn)
+
+        layout.addLayout(button_layout)
+
+        # Load initial log
+        self._load_current_log()
+
+    def _on_log_changed(self, text: str) -> None:
+        """Handle log selection change."""
+        self._load_current_log()
+
+    def _on_refresh(self) -> None:
+        """Refresh current log."""
+        self._load_current_log()
+
+    def _load_current_log(self) -> None:
+        """Load the currently selected log."""
+        current = self.log_selector.currentText()
+        if current in self.log_sources:
+            fetch_func, source = self.log_sources[current]
+            try:
+                logs = fetch_func()
+                self.log_text.setPlainText(logs)
+                self.log_text.moveCursor(self.log_text.textCursor().MoveOperation.End)
+                self.source_label.setText(source)
+            except Exception as e:
+                self.log_text.setPlainText(f"Error loading log: {e}")
+                self.source_label.setText("")
+
+
 class NewVhostDialog(QDialog):
     """Dialog for creating a new virtual host."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("New Virtual Host")
+        self.setWindowTitle("New Site")
         self.setMinimumWidth(450)
         self._setup_ui()
         self.result_data = None
@@ -248,12 +328,11 @@ class ServiceManagerTray:
         """Build the context menu with all services."""
         self._menu = QMenu()
 
-        # Add services that are installed, skipping conflicts
+        # === SERVICES ===
         installed_count = 0
         shown_services: set[str] = set()
 
         for service in self._registry.get_all_services():
-            # Skip if a conflicting service is already shown
             if service.conflicts:
                 if any(c in shown_services for c in service.conflicts):
                     continue
@@ -268,84 +347,60 @@ class ServiceManagerTray:
             no_services.setEnabled(False)
             self._menu.addAction(no_services)
 
-        # Xdebug toggle (only show if installed)
-        if xdebug.is_xdebug_installed():
+        # === SITES (right after services) ===
+        if vhosts.has_nginx_sites():
             self._menu.addSeparator()
-            self._xdebug_action = QAction(QIcon.fromTheme("debug-run"), "Xdebug: ...", self._menu)
-            self._xdebug_action.triggered.connect(self._toggle_xdebug)
-            self._menu.addAction(self._xdebug_action)
-            self._update_xdebug_status()
+            self._vhosts_menu = QMenu("Sites", self._menu)
+            self._vhosts_menu.setIcon(QIcon.fromTheme("network-server"))
+            self._build_vhosts_menu()
+            self._menu.addMenu(self._vhosts_menu)
 
-        # PHP version menu (show if any PHP is installed, for php.ini access)
+        # === PHP (version + xdebug together) ===
         versions = php_versions.get_installed_php_versions()
-        if versions:
+        has_php = versions or xdebug.is_xdebug_installed()
+
+        if has_php:
             self._menu.addSeparator()
+
+        if versions:
             self._php_version_menu = QMenu("PHP Version", self._menu)
             self._php_version_menu.setIcon(QIcon.fromTheme("applications-development"))
             self._build_php_version_menu(versions)
             self._menu.addMenu(self._php_version_menu)
 
-            # PHP Info action
-            phpinfo_action = QAction(QIcon.fromTheme("dialog-information"), "PHP Info", self._menu)
-            phpinfo_action.triggered.connect(self._view_phpinfo)
-            self._menu.addAction(phpinfo_action)
+        if xdebug.is_xdebug_installed():
+            self._xdebug_action = QAction(QIcon.fromTheme("debug-run"), "Xdebug: ...", self._menu)
+            self._xdebug_action.triggered.connect(self._toggle_xdebug)
+            self._menu.addAction(self._xdebug_action)
+            self._update_xdebug_status()
 
-        # Web Logs submenu
-        if web_logs.has_nginx_logs() or self._systemd.is_service_installed("php-fpm"):
-            self._menu.addSeparator()
-            logs_menu = QMenu("Web Logs", self._menu)
-            logs_menu.setIcon(QIcon.fromTheme("text-x-log"))
+        # === DIAGNOSTICS (logs + config together) ===
+        self._menu.addSeparator()
 
-            if web_logs.has_nginx_logs():
-                nginx_access_action = QAction(QIcon.fromTheme("text-x-generic"), "Nginx Access Log", logs_menu)
-                nginx_access_action.triggered.connect(self._view_nginx_access_log)
-                logs_menu.addAction(nginx_access_action)
+        view_logs_action = QAction(QIcon.fromTheme("text-x-log"), "View Logs", self._menu)
+        view_logs_action.triggered.connect(self._view_all_logs)
+        self._menu.addAction(view_logs_action)
 
-                nginx_error_action = QAction(QIcon.fromTheme("dialog-warning"), "Nginx Error Log", logs_menu)
-                nginx_error_action.triggered.connect(self._view_nginx_error_log)
-                logs_menu.addAction(nginx_error_action)
-
-            if self._systemd.is_service_installed("php-fpm"):
-                if web_logs.has_nginx_logs():
-                    logs_menu.addSeparator()
-                php_error_action = QAction(QIcon.fromTheme("dialog-error"), "PHP Error Log", logs_menu)
-                php_error_action.triggered.connect(self._view_php_error_log)
-                logs_menu.addAction(php_error_action)
-
-            self._menu.addMenu(logs_menu)
-
-        # Virtual Hosts menu
-        if vhosts.has_nginx_sites():
-            self._menu.addSeparator()
-            self._vhosts_menu = QMenu("Virtual Hosts", self._menu)
-            self._vhosts_menu.setIcon(QIcon.fromTheme("network-server"))
-            self._build_vhosts_menu()
-            self._menu.addMenu(self._vhosts_menu)
-
-        # Config Files menu
         all_configs = config_files.get_all_configs()
         if all_configs:
-            self._menu.addSeparator()
             config_menu = QMenu("Config Files", self._menu)
             config_menu.setIcon(QIcon.fromTheme("preferences-system"))
             self._build_config_menu(config_menu, all_configs)
             self._menu.addMenu(config_menu)
 
+        # === SYSTEM ===
         self._menu.addSeparator()
 
-        # Refresh action
         refresh_action = QAction(QIcon.fromTheme("view-refresh"), "Refresh Status", self._menu)
         refresh_action.triggered.connect(self._refresh_status)
         self._menu.addAction(refresh_action)
 
         self._menu.addSeparator()
 
-        # About action
         about_action = QAction(QIcon.fromTheme("help-about"), "About", self._menu)
         about_action.triggered.connect(self._show_about)
         self._menu.addAction(about_action)
 
-        # Quit action
         quit_action = QAction(QIcon.fromTheme("application-exit"), "Quit", self._menu)
         quit_action.triggered.connect(self._quit)
         self._menu.addAction(quit_action)
@@ -578,33 +633,37 @@ class ServiceManagerTray:
         )
         dialog.exec()
 
-    def _get_phpinfo(self) -> str:
-        """Get PHP info output."""
-        import subprocess
-        try:
-            cmd = "php -i"
-            if is_flatpak():
-                cmd = f"flatpak-spawn --host {cmd}"
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return result.stdout if result.stdout else result.stderr
-        except Exception as e:
-            return f"Error getting PHP info: {e}"
+    def _view_all_logs(self) -> None:
+        """Show unified logs viewer dialog."""
+        log_sources = {}
 
-    def _view_phpinfo(self) -> None:
-        """Show PHP info dialog."""
-        info = self._get_phpinfo()
-        dialog = LogsDialog(
-            "PHP Info",
-            info,
-            refresh_callback=self._get_phpinfo,
-            source="php -i"
-        )
+        # Add service logs
+        for service_name in self._status_actions.keys():
+            display_name = f"{service_name} (service)"
+            log_sources[display_name] = (
+                lambda sn=service_name: self._systemd.get_logs(sn),
+                f"journalctl -u {service_name}.service"
+            )
+
+        # Add web logs
+        if web_logs.has_nginx_logs():
+            log_sources["Nginx Access Log"] = (
+                lambda: web_logs.get_nginx_access_log(lines=200)[0],
+                web_logs.get_nginx_access_log(lines=1)[1]
+            )
+            log_sources["Nginx Error Log"] = (
+                lambda: web_logs.get_nginx_error_log(lines=200)[0],
+                web_logs.get_nginx_error_log(lines=1)[1]
+            )
+
+        # Add PHP error log
+        if self._systemd.is_service_installed("php-fpm"):
+            log_sources["PHP Error Log"] = (
+                lambda: web_logs.get_php_error_log(lines=200)[0],
+                web_logs.get_php_error_log(lines=1)[1]
+            )
+
+        dialog = UnifiedLogsDialog(log_sources)
         dialog.exec()
 
     def _build_config_menu(self, menu: QMenu, configs: dict) -> None:
@@ -769,7 +828,7 @@ class ServiceManagerTray:
         if self._xdebug_action:
             enabled = xdebug.is_xdebug_enabled()
             status = "Enabled" if enabled else "Disabled"
-            self._xdebug_action.setText(f"Xdebug: {status} (click to toggle)")
+            self._xdebug_action.setText(f"Xdebug: {status}")
 
     def _build_php_version_menu(self, versions: list) -> None:
         """Build the PHP version submenu."""
