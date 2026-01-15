@@ -431,7 +431,7 @@ class ServiceManagerTray:
         display_name = service.display_name
         version = self._get_service_version(service)
         if version:
-            display_name = f"{service.display_name} ({version})"
+            display_name = f"{service.display_name} {version}"
 
         service_menu = QMenu(display_name, self._menu)
         self._service_menus[service.name] = service_menu
