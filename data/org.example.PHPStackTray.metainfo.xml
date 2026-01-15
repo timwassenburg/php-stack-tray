@@ -1,33 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.example.ServiceManager</id>
-  <name>Service Manager</name>
-  <summary>Manage system services from the system tray</summary>
+  <id>org.example.PHPStackTray</id>
+  <name>PHP Stack Tray</name>
+  <summary>System tray application for PHP development on Linux</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
 
   <description>
     <p>
-      Service Manager is a simple system tray application that allows you to
-      start, stop, and restart system services like Nginx, MySQL, Apache,
-      MariaDB, and more.
+      PHP Stack Tray is a system tray application for PHP development on Linux.
+      Manage nginx, PHP-FPM, MySQL/MariaDB, virtual hosts, and more from your system tray.
     </p>
     <p>Features:</p>
     <ul>
       <li>Start, stop, and restart services with a simple click</li>
       <li>View service status at a glance</li>
-      <li>Works on all Linux desktop environments</li>
-      <li>Secure authentication via Polkit</li>
+      <li>Toggle Xdebug with one click</li>
+      <li>Switch between PHP versions</li>
+      <li>Manage virtual hosts</li>
+      <li>Quick access to logs and config files</li>
     </ul>
   </description>
 
-  <launchable type="desktop-id">org.example.ServiceManager.desktop</launchable>
+  <launchable type="desktop-id">org.example.PHPStackTray.desktop</launchable>
 
-  <url type="homepage">https://example.org/servicemanager</url>
-  <url type="bugtracker">https://example.org/servicemanager/issues</url>
+  <url type="homepage">https://github.com/yourusername/php-stack-tray</url>
+  <url type="bugtracker">https://github.com/yourusername/php-stack-tray/issues</url>
 
   <developer id="org.example">
-    <name>Service Manager Developers</name>
+    <name>Tim Wassenburg</name>
   </developer>
 
   <content_rating type="oars-1.1" />
@@ -38,12 +39,10 @@
         <p>Initial release with support for:</p>
         <ul>
           <li>Nginx</li>
-          <li>MySQL</li>
-          <li>MariaDB</li>
-          <li>Apache</li>
-          <li>PostgreSQL</li>
-          <li>Redis</li>
+          <li>MySQL/MariaDB</li>
           <li>PHP-FPM</li>
+          <li>Xdebug toggle</li>
+          <li>Virtual hosts management</li>
         </ul>
       </description>
     </release>

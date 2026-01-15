@@ -5,7 +5,7 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-from .tray import ServiceManagerTray
+from .tray import PHPStackTray
 
 
 def main() -> int:
@@ -15,7 +15,7 @@ def main() -> int:
     app.setApplicationName("PHP Stack Tray")
     app.setDesktopFileName("org.example.PHPStackTray")
 
-    tray = ServiceManagerTray(app)
+    tray = PHPStackTray(app)
     if not tray.setup():
         return 1
 

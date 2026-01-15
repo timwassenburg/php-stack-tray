@@ -256,8 +256,8 @@ class NewVhostDialog(QDialog):
         self.accept()
 
 
-class ServiceManagerTray:
-    """System tray application for managing services."""
+class PHPStackTray:
+    """System tray application for PHP development."""
 
     REFRESH_INTERVAL_MS = 5000  # 5 seconds
 
@@ -327,6 +327,15 @@ class ServiceManagerTray:
     def _build_menu(self) -> None:
         """Build the context menu with all services."""
         self._menu = QMenu()
+
+        # === HEADER ===
+        header = QAction("PHP Stack Tray", self._menu)
+        header.setEnabled(False)
+        font = header.font()
+        font.setBold(True)
+        header.setFont(font)
+        self._menu.addAction(header)
+        self._menu.addSeparator()
 
         # === SERVICES ===
         installed_count = 0

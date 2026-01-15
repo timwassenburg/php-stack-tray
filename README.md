@@ -33,7 +33,7 @@ cd php-stack-tray
 pip install PyQt6
 
 # Run
-PYTHONPATH=src python -m service_manager.main
+PYTHONPATH=src python -m php_stack_tray.main
 ```
 
 ## Polkit Configuration (Optional)
@@ -41,7 +41,7 @@ PYTHONPATH=src python -m service_manager.main
 To avoid entering your password repeatedly, install the polkit rules:
 
 ```bash
-sudo cp data/50-service-manager.rules /etc/polkit-1/rules.d/
+sudo cp data/50-php-stack-tray.rules /etc/polkit-1/rules.d/
 ```
 
 ## Screenshots
@@ -60,7 +60,7 @@ The application runs in your system tray. Right-click to access the menu:
 ## Project Structure
 
 ```
-src/service_manager/
+src/php_stack_tray/
 ├── __init__.py          # Package info and version
 ├── main.py              # Entry point
 ├── tray.py              # System tray UI

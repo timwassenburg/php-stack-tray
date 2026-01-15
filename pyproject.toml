@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "service-manager"
+name = "php-stack-tray"
 version = "0.1.0"
-description = "System tray application for managing Linux services"
+description = "System tray application for PHP development on Linux"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -16,10 +16,10 @@ dependencies = [
 ]
 
 [project.scripts]
-service-manager = "service_manager.main:main"
+php-stack-tray = "php_stack_tray.main:main"
 
 [project.gui-scripts]
-service-manager-gui = "service_manager.main:main"
+php-stack-tray-gui = "php_stack_tray.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

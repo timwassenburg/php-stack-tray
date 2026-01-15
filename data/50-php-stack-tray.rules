@@ -1,5 +1,5 @@
-// Polkit rules for Service Manager
-// Install to: /etc/polkit-1/rules.d/50-service-manager.rules
+// Polkit rules for PHP Stack Tray
+// Install to: /etc/polkit-1/rules.d/50-php-stack-tray.rules
 //
 // This allows users in the 'wheel' group to manage systemd services
 // with authentication cached for the session (auth_admin_keep)

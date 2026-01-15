@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=PHP Stack Tray
+Comment=System tray application for PHP development on Linux
+Comment[nl]=Systeembalk applicatie voor PHP ontwikkeling op Linux
+Exec=php-stack-tray
+Icon=org.example.PHPStackTray
+Terminal=false
+Type=Application
+Categories=Development;System;Utility;
+Keywords=nginx;mysql;php;php-fpm;mariadb;xdebug;systemd;service;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel
