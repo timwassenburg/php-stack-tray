@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Server rack icon -->
+  <rect x="16" y="16" width="96" height="96" rx="8" fill="#3584e4" />
+
+  <!-- Server slots -->
+  <rect x="24" y="28" width="80" height="20" rx="4" fill="#ffffff" opacity="0.9" />
+  <rect x="24" y="56" width="80" height="20" rx="4" fill="#ffffff" opacity="0.9" />
+  <rect x="24" y="84" width="80" height="20" rx="4" fill="#ffffff" opacity="0.9" />
+
+  <!-- Status lights -->
+  <circle cx="36" cy="38" r="4" fill="#33d17a" />
+  <circle cx="36" cy="66" r="4" fill="#33d17a" />
+  <circle cx="36" cy="94" r="4" fill="#f6d32d" />
+
+  <!-- Drive indicators -->
+  <rect x="48" y="34" width="48" height="8" rx="2" fill="#c0bfbc" />
+  <rect x="48" y="62" width="48" height="8" rx="2" fill="#c0bfbc" />
+  <rect x="48" y="90" width="48" height="8" rx="2" fill="#c0bfbc" />
+</svg>

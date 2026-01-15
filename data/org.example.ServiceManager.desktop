@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Service Manager
+Comment=Manage system services from the system tray
+Comment[nl]=Beheer systeemservices vanuit de systeembalk
+Exec=service-manager
+Icon=org.example.ServiceManager
+Terminal=false
+Type=Application
+Categories=System;Utility;
+Keywords=nginx;mysql;apache;mariadb;systemd;service;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

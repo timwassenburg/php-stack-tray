@@ -1,0 +1,33 @@
+app-id: org.example.ServiceManager
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
+command: service-manager
+
+finish-args:
+  # Display access for system tray
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --share=ipc
+  # Session D-Bus for notifications
+  - --socket=session-bus
+  # Access to run pkexec for privilege escalation
+  - --talk-name=org.freedesktop.PolicyKit1
+  # Allow running host commands (pkexec, systemctl)
+  - --talk-name=org.freedesktop.Flatpak
+
+build-options:
+  build-args:
+    - --share=network
+
+modules:
+  - name: service-manager
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app .
+      - install -Dm644 data/org.example.ServiceManager.desktop /app/share/applications/org.example.ServiceManager.desktop
+      - install -Dm644 data/org.example.ServiceManager.metainfo.xml /app/share/metainfo/org.example.ServiceManager.metainfo.xml
+      - install -Dm644 data/icons/service-manager.svg /app/share/icons/hicolor/scalable/apps/org.example.ServiceManager.svg
+    sources:
+      - type: dir
+        path: ..

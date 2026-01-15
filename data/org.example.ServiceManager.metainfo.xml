@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.example.ServiceManager</id>
+  <name>Service Manager</name>
+  <summary>Manage system services from the system tray</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Service Manager is a simple system tray application that allows you to
+      start, stop, and restart system services like Nginx, MySQL, Apache,
+      MariaDB, and more.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Start, stop, and restart services with a simple click</li>
+      <li>View service status at a glance</li>
+      <li>Works on all Linux desktop environments</li>
+      <li>Secure authentication via Polkit</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">org.example.ServiceManager.desktop</launchable>
+
+  <url type="homepage">https://example.org/servicemanager</url>
+  <url type="bugtracker">https://example.org/servicemanager/issues</url>
+
+  <developer id="org.example">
+    <name>Service Manager Developers</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-01-14">
+      <description>
+        <p>Initial release with support for:</p>
+        <ul>
+          <li>Nginx</li>
+          <li>MySQL</li>
+          <li>MariaDB</li>
+          <li>Apache</li>
+          <li>PostgreSQL</li>
+          <li>Redis</li>
+          <li>PHP-FPM</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+</component>
