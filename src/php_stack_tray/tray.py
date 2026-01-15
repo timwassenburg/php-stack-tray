@@ -9,7 +9,8 @@ from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QColor, QBrush
 from PyQt6.QtWidgets import (
     QApplication, QMenu, QSystemTrayIcon, QMessageBox,
     QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout,
-    QLabel, QLineEdit, QFormLayout, QCheckBox, QFileDialog, QComboBox
+    QLabel, QLineEdit, QFormLayout, QCheckBox, QFileDialog, QComboBox,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 )
 
 from .services import ServiceDefinition, ServiceRegistry, DEFAULT_SERVICES
@@ -256,6 +257,204 @@ class NewVhostDialog(QDialog):
         self.accept()
 
 
+class SitesDialog(QDialog):
+    """Dialog for managing virtual hosts / sites."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Sites Manager")
+        self.setMinimumSize(700, 400)
+        self._setup_ui()
+        self._load_sites()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Name", "Domain", "Document Root", "Status"])
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.selectionModel().selectionChanged.connect(self._on_selection_changed)
+
+        # Set column widths
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(0, 120)
+        self.table.setColumnWidth(1, 150)
+        self.table.setColumnWidth(3, 80)
+
+        layout.addWidget(self.table)
+
+        # Action buttons
+        action_layout = QHBoxLayout()
+
+        self.toggle_btn = QPushButton("Enable")
+        self.toggle_btn.setIcon(QIcon.fromTheme("media-playback-start"))
+        self.toggle_btn.clicked.connect(self._toggle_site)
+        self.toggle_btn.setEnabled(False)
+        action_layout.addWidget(self.toggle_btn)
+
+        self.browser_btn = QPushButton("Open in Browser")
+        self.browser_btn.setIcon(QIcon.fromTheme("internet-web-browser"))
+        self.browser_btn.clicked.connect(self._open_in_browser)
+        self.browser_btn.setEnabled(False)
+        action_layout.addWidget(self.browser_btn)
+
+        self.edit_btn = QPushButton("Edit Config")
+        self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+        self.edit_btn.clicked.connect(self._edit_config)
+        self.edit_btn.setEnabled(False)
+        action_layout.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
+        self.delete_btn.clicked.connect(self._delete_site)
+        self.delete_btn.setEnabled(False)
+        action_layout.addWidget(self.delete_btn)
+
+        layout.addLayout(action_layout)
+
+        # Bottom buttons
+        bottom_layout = QHBoxLayout()
+
+        new_btn = QPushButton("New Site...")
+        new_btn.setIcon(QIcon.fromTheme("list-add"))
+        new_btn.clicked.connect(self._new_site)
+        bottom_layout.addWidget(new_btn)
+
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setIcon(QIcon.fromTheme("view-refresh"))
+        refresh_btn.clicked.connect(self._load_sites)
+        bottom_layout.addWidget(refresh_btn)
+
+        bottom_layout.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.close)
+        bottom_layout.addWidget(close_btn)
+
+        layout.addLayout(bottom_layout)
+
+    def _load_sites(self) -> None:
+        """Load and display all virtual hosts."""
+        self.table.setRowCount(0)
+        self._sites = vhosts.get_virtual_hosts()
+
+        for vh in self._sites:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+
+            self.table.setItem(row, 0, QTableWidgetItem(vh.name))
+            self.table.setItem(row, 1, QTableWidgetItem(vh.server_name or "-"))
+            self.table.setItem(row, 2, QTableWidgetItem(vh.document_root or "-"))
+
+            status_item = QTableWidgetItem("Enabled" if vh.enabled else "Disabled")
+            status_item.setForeground(QColor("#2ecc71" if vh.enabled else "#95a5a6"))
+            self.table.setItem(row, 3, status_item)
+
+        self._on_selection_changed()
+
+    def _get_selected_site(self):
+        """Get the currently selected site."""
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return None
+        row = rows[0].row()
+        if row < len(self._sites):
+            return self._sites[row]
+        return None
+
+    def _on_selection_changed(self) -> None:
+        """Update button states based on selection."""
+        site = self._get_selected_site()
+        has_selection = site is not None
+
+        self.toggle_btn.setEnabled(has_selection)
+        self.browser_btn.setEnabled(has_selection and site.enabled if site else False)
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
+
+        if site:
+            if site.enabled:
+                self.toggle_btn.setText("Disable")
+                self.toggle_btn.setIcon(QIcon.fromTheme("media-playback-stop"))
+            else:
+                self.toggle_btn.setText("Enable")
+                self.toggle_btn.setIcon(QIcon.fromTheme("media-playback-start"))
+
+    def _toggle_site(self) -> None:
+        """Enable or disable the selected site."""
+        site = self._get_selected_site()
+        if not site:
+            return
+
+        if site.enabled:
+            success, message = vhosts.disable_vhost(site.name)
+        else:
+            success, message = vhosts.enable_vhost(site.name)
+
+        if not success:
+            QMessageBox.warning(self, "Error", message)
+        self._load_sites()
+
+    def _open_in_browser(self) -> None:
+        """Open the selected site in browser."""
+        site = self._get_selected_site()
+        if site and site.server_name:
+            url = f"http://{site.server_name}"
+            subprocess.Popen(["xdg-open", url], start_new_session=True)
+
+    def _edit_config(self) -> None:
+        """Open the config file in default editor."""
+        site = self._get_selected_site()
+        if site:
+            subprocess.Popen(["xdg-open", str(site.config_path)], start_new_session=True)
+
+    def _delete_site(self) -> None:
+        """Delete the selected site."""
+        site = self._get_selected_site()
+        if not site:
+            return
+
+        reply = QMessageBox.question(
+            self, "Confirm Delete",
+            f"Are you sure you want to delete '{site.name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            success, message = vhosts.delete_vhost(site.name)
+            if not success:
+                QMessageBox.warning(self, "Error", message)
+            self._load_sites()
+
+    def _new_site(self) -> None:
+        """Create a new virtual host."""
+        dialog = NewVhostDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.result_data
+            success, message = vhosts.create_vhost(
+                data["name"],
+                data["server_name"],
+                data["docroot"]
+            )
+
+            if success:
+                if data["add_hosts"]:
+                    vhosts.add_hosts_entry(data["server_name"])
+                if data["enable"]:
+                    vhosts.enable_vhost(data["name"])
+                self._load_sites()
+            else:
+                QMessageBox.warning(self, "Error", message)
+
+
 class PHPStackTray:
     """System tray application for PHP development."""
 
@@ -359,10 +558,9 @@ class PHPStackTray:
         # === SITES (right after services) ===
         if vhosts.has_nginx_sites():
             self._menu.addSeparator()
-            self._vhosts_menu = QMenu("Sites", self._menu)
-            self._vhosts_menu.setIcon(QIcon.fromTheme("network-server"))
-            self._build_vhosts_menu()
-            self._menu.addMenu(self._vhosts_menu)
+            sites_action = QAction(QIcon.fromTheme("network-server"), "Sites...", self._menu)
+            sites_action.triggered.connect(self._show_sites_dialog)
+            self._menu.addAction(sites_action)
 
         # === PHP (version + xdebug together) ===
         versions = php_versions.get_installed_php_versions()
@@ -710,127 +908,10 @@ class PHPStackTray:
         except Exception:
             self._show_notification(f"Could not open {url}", error=True)
 
-    def _build_vhosts_menu(self) -> None:
-        """Build the virtual hosts submenu."""
-        self._vhosts_menu.clear()
-
-        vhost_list = vhosts.get_virtual_hosts()
-
-        for vh in vhost_list:
-            # Create submenu for each vhost
-            vh_menu = QMenu(vh.name, self._vhosts_menu)
-
-            # Status indicator
-            status = "Enabled" if vh.enabled else "Disabled"
-            status_action = QAction(f"Status: {status}", vh_menu)
-            status_action.setEnabled(False)
-            vh_menu.addAction(status_action)
-
-            if vh.server_name:
-                domain_action = QAction(f"Domain: {vh.server_name}", vh_menu)
-                domain_action.setEnabled(False)
-                vh_menu.addAction(domain_action)
-
-                # Open in Browser action
-                browser_action = QAction(QIcon.fromTheme("web-browser"), "Open in Browser", vh_menu)
-                browser_action.triggered.connect(lambda checked, domain=vh.server_name: self._open_in_browser(domain))
-                vh_menu.addAction(browser_action)
-
-            vh_menu.addSeparator()
-
-            # Enable/Disable action
-            if vh.enabled:
-                disable_action = QAction(QIcon.fromTheme("dialog-cancel"), "Disable", vh_menu)
-                disable_action.triggered.connect(lambda checked, n=vh.name: self._disable_vhost(n))
-                vh_menu.addAction(disable_action)
-            else:
-                enable_action = QAction(QIcon.fromTheme("dialog-ok"), "Enable", vh_menu)
-                enable_action.triggered.connect(lambda checked, n=vh.name: self._enable_vhost(n))
-                vh_menu.addAction(enable_action)
-
-            # Delete action
-            delete_action = QAction(QIcon.fromTheme("edit-delete"), "Delete", vh_menu)
-            delete_action.triggered.connect(lambda checked, n=vh.name: self._delete_vhost(n))
-            vh_menu.addAction(delete_action)
-
-            # Set icon based on status
-            if vh.enabled:
-                vh_menu.setIcon(self._create_status_icon(ServiceState.ACTIVE))
-            else:
-                vh_menu.setIcon(self._create_status_icon(ServiceState.INACTIVE))
-
-            self._vhosts_menu.addMenu(vh_menu)
-
-        if vhost_list:
-            self._vhosts_menu.addSeparator()
-
-        # New vhost action
-        new_action = QAction(QIcon.fromTheme("list-add"), "New Virtual Host...", self._vhosts_menu)
-        new_action.triggered.connect(self._create_new_vhost)
-        self._vhosts_menu.addAction(new_action)
-
-    def _enable_vhost(self, name: str) -> None:
-        """Enable a virtual host."""
-        success, message = vhosts.enable_vhost(name)
-        if success:
-            self._show_notification(f"Enabled {name}")
-            self._build_vhosts_menu()
-        else:
-            self._show_notification(message, error=True)
-
-    def _disable_vhost(self, name: str) -> None:
-        """Disable a virtual host."""
-        success, message = vhosts.disable_vhost(name)
-        if success:
-            self._show_notification(f"Disabled {name}")
-            self._build_vhosts_menu()
-        else:
-            self._show_notification(message, error=True)
-
-    def _delete_vhost(self, name: str) -> None:
-        """Delete a virtual host after confirmation."""
-        reply = QMessageBox.question(
-            None,
-            "Delete Virtual Host",
-            f"Are you sure you want to delete '{name}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            success, message = vhosts.delete_vhost(name)
-            if success:
-                self._show_notification(f"Deleted {name}")
-                self._build_vhosts_menu()
-            else:
-                self._show_notification(message, error=True)
-
-    def _create_new_vhost(self) -> None:
-        """Show dialog to create a new virtual host."""
-        dialog = NewVhostDialog()
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.result_data:
-            data = dialog.result_data
-
-            # Create the vhost
-            success, message = vhosts.create_vhost(
-                data["name"],
-                data["server_name"],
-                data["docroot"]
-            )
-
-            if not success:
-                self._show_notification(message, error=True)
-                return
-
-            # Add hosts entry if requested
-            if data["add_hosts"]:
-                vhosts.add_hosts_entry(data["server_name"])
-
-            # Enable if requested
-            if data["enable"]:
-                vhosts.enable_vhost(data["name"])
-
-            self._show_notification(f"Created {data['name']}")
-            self._build_vhosts_menu()
+    def _show_sites_dialog(self) -> None:
+        """Show the sites management dialog."""
+        dialog = SitesDialog()
+        dialog.exec()
 
     def _update_xdebug_status(self) -> None:
         """Update the Xdebug menu item text."""
