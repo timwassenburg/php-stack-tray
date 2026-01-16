@@ -21,5 +21,16 @@ php-stack-tray = "php_stack_tray.main:main"
 [project.gui-scripts]
 php-stack-tray-gui = "php_stack_tray.main:main"
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"
