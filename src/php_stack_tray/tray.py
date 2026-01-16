@@ -1021,7 +1021,7 @@ class PHPStackTray:
             <p>A system tray application for PHP development on Linux.</p>
             <p>Manage nginx, PHP-FPM, MySQL/MariaDB, virtual hosts, and more.</p>
             <hr>
-            <p><small>Built with Python and PyQt6</small></p>"""
+            <p><small>Author: Tim Wassenburg</small></p>"""
         )
 
     def _quit(self) -> None:

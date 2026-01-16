@@ -9,9 +9,8 @@ A system tray application for PHP development on Linux. Manage nginx, PHP-FPM, M
 - **Autostart Toggle** - Enable/disable services at boot
 - **Xdebug Toggle** - Enable/disable Xdebug with one click
 - **PHP Version Switcher** - Switch between multiple PHP versions
-- **PHP Info** - View `php -i` output in a dialog
 - **Web Logs** - View nginx access/error logs and PHP error logs
-- **Virtual Hosts** - Create, enable/disable, delete nginx vhosts
+- **Sites** - Create, enable/disable, delete nginx vhosts
 - **Open in Browser** - Quick access to open vhosts in browser
 - **Config Files** - Quick access to nginx.conf, php.ini, my.cnf, etc.
 
@@ -51,9 +50,8 @@ The application runs in your system tray. Right-click to access the menu:
 - Services (nginx, PHP-FPM, MySQL) with status indicators
 - Xdebug toggle
 - PHP Version submenu with php.ini access
-- PHP Info
 - Web Logs submenu
-- Virtual Hosts management
+- Sites management
 - Config Files quick access
 - About dialog
 

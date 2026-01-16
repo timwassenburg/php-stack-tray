@@ -1,18 +1,23 @@
 // Polkit rules for PHP Stack Tray
 // Install to: /etc/polkit-1/rules.d/50-php-stack-tray.rules
 //
-// This allows users in the 'wheel' group to manage systemd services
-// with authentication cached for the session (auth_admin_keep)
+// This caches authentication for the session so you only enter
+// your password once instead of for every action.
 
 polkit.addRule(function(action, subject) {
-    // Only apply to systemd unit management actions
+    // Systemd service management
     if (action.id == "org.freedesktop.systemd1.manage-units" ||
         action.id == "org.freedesktop.systemd1.manage-unit-files" ||
         action.id == "org.freedesktop.systemd1.reload-daemon") {
 
-        // User must be in wheel group (admin)
         if (subject.isInGroup("wheel") || subject.isInGroup("sudo")) {
-            // Return auth_admin_keep - asks for password once per session
+            return polkit.Result.AUTH_ADMIN_KEEP;
+        }
+    }
+
+    // pkexec commands (for vhosts, config files, etc.)
+    if (action.id == "org.freedesktop.policykit.exec") {
+        if (subject.isInGroup("wheel") || subject.isInGroup("sudo")) {
             return polkit.Result.AUTH_ADMIN_KEEP;
         }
     }
