@@ -4,15 +4,29 @@ A system tray application for PHP development on Linux. Manage nginx, PHP-FPM, M
 
 ## Features
 
-- **Service Management** - Start, stop, restart nginx, PHP-FPM, MySQL/MariaDB
-- **Status Indicators** - Visual status (green=running, gray=stopped, red=failed)
+- **Service Management** - Start, stop, restart services with visual status indicators
 - **Autostart Toggle** - Enable/disable services at boot
 - **Xdebug Toggle** - Enable/disable Xdebug with one click
 - **PHP Version Switcher** - Switch between multiple PHP versions
 - **Web Logs** - View nginx access/error logs and PHP error logs
-- **Sites** - Create, enable/disable, delete nginx vhosts
-- **Open in Browser** - Quick access to open vhosts in browser
+- **Sites** - Create, enable/disable, delete nginx virtual hosts
 - **Config Files** - Quick access to nginx.conf, php.ini, my.cnf, etc.
+
+## Supported Services
+
+The app automatically detects and shows only the services installed on your system:
+
+| Service | Description |
+|---------|-------------|
+| **Nginx** | High-performance HTTP server and reverse proxy |
+| **Apache** | Apache HTTP Server (apache2 or httpd) |
+| **PHP-FPM** | PHP FastCGI Process Manager |
+| **MariaDB** | MariaDB database server |
+| **MySQL** | MySQL database server |
+| **PostgreSQL** | PostgreSQL database server |
+| **Redis** | Redis in-memory data store |
+
+*Note: MariaDB/MySQL and Apache/httpd are mutually exclusive - only one of each pair is shown.*
 
 ## Requirements
 
