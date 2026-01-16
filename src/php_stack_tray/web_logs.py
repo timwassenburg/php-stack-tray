@@ -20,11 +20,25 @@ NGINX_LOG_PATHS = {
 }
 
 PHP_ERROR_LOG_PATHS = [
-    "/var/log/php-fpm/www-error.log",
-    "/var/log/php-fpm/error.log",
-    "/var/log/php/error.log",
-    "/var/log/fpm-php.www.log",
-    "/var/log/php_errors.log",
+    # Common paths
+    "/var/log/php-fpm.log",           # Arch/Fedora/Alpine
+    "/var/log/php-fpm/www-error.log", # Some distros
+    "/var/log/php-fpm/error.log",     # Some distros
+    "/var/log/php/error.log",         # Generic
+    "/var/log/fpm-php.www.log",       # Debian/Ubuntu
+    "/var/log/php_errors.log",        # Custom common
+    # Versioned Arch AUR
+    "/var/log/php82-fpm.log",
+    "/var/log/php83-fpm.log",
+]
+
+# PHP-FPM service names to try for journalctl
+PHP_FPM_SERVICES = [
+    "php-fpm",
+    # Arch AUR style
+    "php81-fpm", "php82-fpm", "php83-fpm", "php84-fpm",
+    # Debian/Ubuntu style
+    "php8.1-fpm", "php8.2-fpm", "php8.3-fpm", "php8.4-fpm",
 ]
 
 
@@ -92,13 +106,14 @@ def get_php_error_log(lines: int = 100) -> tuple[str, str]:
     if log_path:
         return _read_log_file(log_path, lines)
 
-    # Fall back to journalctl with PHP errors filtered
-    success, output = _run_shell(
-        f"journalctl -u php-fpm -n {lines * 2} --no-pager 2>/dev/null | "
-        "grep -iE 'error|warning|fatal|exception|parse' | tail -n {lines}"
-    )
-    if success and output.strip():
-        return output, "journalctl -u php-fpm (filtered)"
+    # Fall back to journalctl - try multiple service names
+    for service in PHP_FPM_SERVICES:
+        success, output = _run_shell(
+            f"journalctl -u {service} -n {lines * 2} --no-pager 2>/dev/null | "
+            f"grep -iE 'error|warning|fatal|exception|parse' | tail -n {lines}"
+        )
+        if success and output.strip():
+            return output, f"journalctl -u {service} (filtered)"
 
     return "No PHP error log found. Configure error_log in php.ini", "No file"
 

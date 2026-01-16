@@ -75,28 +75,56 @@ def get_php_configs() -> list[ConfigFile]:
 
     # PHP-FPM main config
     fpm_conf = _find_file([
+        # Arch Linux
         "/etc/php/php-fpm.conf",
+        # Arch AUR versioned
+        "/etc/php84/php-fpm.conf",
+        "/etc/php83/php-fpm.conf",
+        "/etc/php82/php-fpm.conf",
+        "/etc/php81/php-fpm.conf",
+        # Fedora/RHEL
         "/etc/php-fpm.conf",
+        # Debian/Ubuntu
+        "/etc/php/8.4/fpm/php-fpm.conf",
         "/etc/php/8.3/fpm/php-fpm.conf",
         "/etc/php/8.2/fpm/php-fpm.conf",
+        "/etc/php/8.1/fpm/php-fpm.conf",
     ])
     if fpm_conf:
         configs.append(ConfigFile("php-fpm.conf", fpm_conf, "php"))
 
     # PHP-FPM pool config (www.conf)
     pool_conf = _find_file([
+        # Arch Linux
         "/etc/php/php-fpm.d/www.conf",
+        # Arch AUR versioned
+        "/etc/php84/php-fpm.d/www.conf",
+        "/etc/php83/php-fpm.d/www.conf",
+        "/etc/php82/php-fpm.d/www.conf",
+        "/etc/php81/php-fpm.d/www.conf",
+        # Fedora/RHEL
         "/etc/php-fpm.d/www.conf",
+        # Debian/Ubuntu
+        "/etc/php/8.4/fpm/pool.d/www.conf",
         "/etc/php/8.3/fpm/pool.d/www.conf",
         "/etc/php/8.2/fpm/pool.d/www.conf",
+        "/etc/php/8.1/fpm/pool.d/www.conf",
     ])
     if pool_conf:
         configs.append(ConfigFile("www.conf (pool)", pool_conf, "php"))
 
     # Xdebug config
     xdebug_conf = _find_file([
+        # Arch Linux
         "/etc/php/conf.d/xdebug.ini",
         "/etc/php/conf.d/50-xdebug.ini",
+        # Arch AUR versioned
+        "/etc/php83/conf.d/xdebug.ini",
+        "/etc/php82/conf.d/xdebug.ini",
+        # Fedora/RHEL
+        "/etc/php.d/xdebug.ini",
+        "/etc/php.d/15-xdebug.ini",
+        # Debian/Ubuntu
         "/etc/php/8.3/mods-available/xdebug.ini",
         "/etc/php/8.2/mods-available/xdebug.ini",
     ])
@@ -112,20 +140,32 @@ def get_mysql_configs() -> list[ConfigFile]:
 
     # Main my.cnf
     my_cnf = _find_file([
+        # Arch/Fedora/RHEL
         "/etc/my.cnf",
-        "/etc/mysql/my.cnf",
         "/etc/my.cnf.d/server.cnf",
+        # Debian/Ubuntu
+        "/etc/mysql/my.cnf",
     ])
     if my_cnf:
         configs.append(ConfigFile("my.cnf", my_cnf, "mysql"))
 
     # MariaDB specific
     mariadb_conf = _find_file([
+        # Arch/Fedora
         "/etc/my.cnf.d/mariadb-server.cnf",
+        # Debian/Ubuntu
         "/etc/mysql/mariadb.conf.d/50-server.cnf",
     ])
     if mariadb_conf:
         configs.append(ConfigFile(Path(mariadb_conf).name, mariadb_conf, "mysql"))
+
+    # MySQL specific (Debian/Ubuntu)
+    mysql_conf = _find_file([
+        "/etc/mysql/mysql.conf.d/mysqld.cnf",
+        "/etc/mysql/conf.d/mysql.cnf",
+    ])
+    if mysql_conf:
+        configs.append(ConfigFile(Path(mysql_conf).name, mysql_conf, "mysql"))
 
     return configs
 

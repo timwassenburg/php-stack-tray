@@ -10,11 +10,33 @@ from .systemd_client import is_flatpak
 
 # Common PHP error log locations
 ERROR_LOG_PATHS = [
-    "/var/log/php-fpm/error.log",
-    "/var/log/php/error.log",
-    "/var/log/fpm-php.www.log",
-    "/var/log/php-fpm.log",
-    "/var/log/php_errors.log",
+    "/var/log/php-fpm.log",           # Arch/Fedora/Alpine
+    "/var/log/php-fpm/error.log",     # Some distros
+    "/var/log/php/error.log",         # Generic
+    "/var/log/fpm-php.www.log",       # Debian/Ubuntu
+    "/var/log/php_errors.log",        # Custom common
+    # Versioned Arch AUR
+    "/var/log/php81-fpm.log",
+    "/var/log/php82-fpm.log",
+    "/var/log/php83-fpm.log",
+    "/var/log/php84-fpm.log",
+]
+
+# PHP-FPM service names to try for journalctl
+PHP_FPM_SERVICES = [
+    "php-fpm",
+    # Arch AUR style
+    "php81-fpm", "php82-fpm", "php83-fpm", "php84-fpm",
+    # Debian/Ubuntu style
+    "php8.1-fpm", "php8.2-fpm", "php8.3-fpm", "php8.4-fpm",
+]
+
+# PHP-FPM config directories to search for error_log setting
+PHP_FPM_CONF_DIRS = [
+    "/etc/php/php-fpm.d",     # Arch
+    "/etc/php-fpm.d",         # Fedora/RHEL
+    "/etc/php/*/fpm/pool.d",  # Debian/Ubuntu
+    "/etc/php8?/php-fpm.d",   # Arch AUR
 ]
 
 
@@ -46,17 +68,18 @@ def _get_configured_error_log() -> Optional[str]:
             if Path(path).exists():
                 return path
 
-    # Check php-fpm pool config
-    success, output = _run_shell(
-        "grep -h 'php_admin_value\\[error_log\\]' /etc/php/php-fpm.d/*.conf 2>/dev/null | "
-        "grep -v '^;' | head -1"
-    )
-    if success and output:
-        match = re.search(r'=\s*(\S+)', output)
-        if match:
-            path = match.group(1)
-            if Path(path).exists():
-                return path
+    # Check php-fpm pool config in multiple locations
+    for conf_dir in PHP_FPM_CONF_DIRS:
+        success, output = _run_shell(
+            f"grep -h 'php_admin_value\\[error_log\\]' {conf_dir}/*.conf 2>/dev/null | "
+            "grep -v '^;' | head -1"
+        )
+        if success and output:
+            match = re.search(r'=\s*(\S+)', output)
+            if match:
+                path = match.group(1)
+                if Path(path).exists():
+                    return path
 
     return None
 
@@ -88,15 +111,8 @@ def get_php_error_log(lines: int = 100) -> tuple[str, str]:
         if success and output.strip():
             return output, f"File: {log_path}"
 
-    # Fall back to journalctl for php-fpm
-    success, output = _run_shell(
-        f"journalctl -u php-fpm -n {lines} --no-pager 2>/dev/null"
-    )
-    if success and output.strip():
-        return output, "Source: journalctl -u php-fpm"
-
-    # Try alternative service names
-    for service in ["php-fpm", "php82-fpm", "php83-fpm", "php81-fpm"]:
+    # Fall back to journalctl - try multiple service names
+    for service in PHP_FPM_SERVICES:
         success, output = _run_shell(
             f"journalctl -u {service} -n {lines} --no-pager 2>/dev/null"
         )

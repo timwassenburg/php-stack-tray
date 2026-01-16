@@ -975,18 +975,31 @@ class PHPStackTray:
 
     def _open_php_ini(self, path: str) -> None:
         """Open php.ini in the default editor."""
-        import subprocess
-        try:
-            # Try xdg-open first, then common editors
-            subprocess.Popen(["xdg-open", path], start_new_session=True)
-        except Exception:
-            try:
-                subprocess.Popen(["kate", path], start_new_session=True)
-            except Exception:
+        import os
+
+        # Try editors in order of preference
+        editors = [
+            os.environ.get("EDITOR"),      # User's preferred editor
+            os.environ.get("VISUAL"),      # User's visual editor
+            "xdg-open",                    # Desktop default
+            "kate",                        # KDE
+            "gedit",                       # GNOME
+            "mousepad",                    # XFCE
+            "featherpad",                  # LXQt
+            "pluma",                       # MATE
+            "xed",                         # Cinnamon
+            "code",                        # VS Code
+        ]
+
+        for editor in editors:
+            if editor:
                 try:
-                    subprocess.Popen(["gedit", path], start_new_session=True)
+                    subprocess.Popen([editor, path], start_new_session=True)
+                    return
                 except Exception:
-                    self._show_notification(f"Could not open {path}", error=True)
+                    continue
+
+        self._show_notification(f"Could not open {path}", error=True)
 
     def _toggle_xdebug(self) -> None:
         """Toggle Xdebug on/off and restart PHP-FPM."""

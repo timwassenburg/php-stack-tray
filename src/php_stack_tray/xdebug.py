@@ -9,12 +9,26 @@ from .systemd_client import is_flatpak
 
 # Common Xdebug config locations
 XDEBUG_CONFIG_PATHS = [
+    # Arch Linux
     "/etc/php/conf.d/xdebug.ini",
     "/etc/php/conf.d/50-xdebug.ini",
+    # Arch AUR versioned
+    "/etc/php81/conf.d/xdebug.ini",
     "/etc/php82/conf.d/xdebug.ini",
     "/etc/php83/conf.d/xdebug.ini",
-    "/etc/php/8.2/mods-available/xdebug.ini",  # Debian/Ubuntu
+    "/etc/php84/conf.d/xdebug.ini",
+    # Debian/Ubuntu
+    "/etc/php/8.1/mods-available/xdebug.ini",
+    "/etc/php/8.2/mods-available/xdebug.ini",
     "/etc/php/8.3/mods-available/xdebug.ini",
+    "/etc/php/8.4/mods-available/xdebug.ini",
+    # Fedora/RHEL/CentOS
+    "/etc/php.d/xdebug.ini",
+    "/etc/php.d/15-xdebug.ini",
+    "/etc/php.d/20-xdebug.ini",
+    # Alpine
+    "/etc/php81/conf.d/xdebug.ini",
+    "/etc/php82/conf.d/00_xdebug.ini",
 ]
 
 
@@ -56,8 +70,12 @@ def is_xdebug_installed() -> bool:
     for path in XDEBUG_CONFIG_PATHS:
         if Path(path).exists() or Path(f"{path}.disabled").exists():
             return True
-    # Also check if xdebug.so exists
-    success, output = _run_shell("php -m 2>/dev/null | grep -qi xdebug && echo yes || find /usr/lib/php*/modules -name 'xdebug.so' 2>/dev/null | head -1")
+    # Also check if xdebug.so exists in common extension directories
+    success, output = _run_shell(
+        "php -m 2>/dev/null | grep -qi xdebug && echo yes || "
+        "find /usr/lib/php*/modules /usr/lib64/php/modules /usr/lib/php/*/modules "
+        "-name 'xdebug.so' 2>/dev/null | head -1"
+    )
     return bool(output.strip())
 
 
