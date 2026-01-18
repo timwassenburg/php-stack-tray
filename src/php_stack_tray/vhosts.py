@@ -25,18 +25,48 @@ NGINX_PATHS = {
 
 HOSTS_FILE = Path("/etc/hosts")
 
-# Common PHP-FPM socket locations
-PHP_FPM_SOCKET_PATHS = [
-    "/run/php-fpm/php-fpm.sock",      # Arch
-    "/run/php-fpm/www.sock",          # Arch alternative
-    "/var/run/php-fpm/php-fpm.sock",  # Some distros
-    "/var/run/php-fpm/www.sock",      # CentOS/RHEL
-    "/run/php/php-fpm.sock",          # Debian/Ubuntu
-    "/var/run/php/php-fpm.sock",      # Debian/Ubuntu alternative
-    "/run/php/php8.3-fpm.sock",       # Debian versioned
-    "/run/php/php8.2-fpm.sock",       # Debian versioned
-    "/run/php/php8.1-fpm.sock",       # Debian versioned
+# Common PHP-FPM socket locations with version info
+# Format: (socket_path, version_label)
+PHP_FPM_SOCKET_PATTERNS = [
+    # Arch Linux default
+    ("/run/php-fpm/php-fpm.sock", "Default"),
+    ("/run/php-fpm/www.sock", "Default"),
+    # Arch AUR versioned
+    ("/run/php-fpm/php81-fpm.sock", "8.1"),
+    ("/run/php-fpm/php82-fpm.sock", "8.2"),
+    ("/run/php-fpm/php83-fpm.sock", "8.3"),
+    ("/run/php-fpm/php84-fpm.sock", "8.4"),
+    # Debian/Ubuntu default
+    ("/run/php/php-fpm.sock", "Default"),
+    ("/var/run/php/php-fpm.sock", "Default"),
+    # Debian/Ubuntu versioned
+    ("/run/php/php8.1-fpm.sock", "8.1"),
+    ("/run/php/php8.2-fpm.sock", "8.2"),
+    ("/run/php/php8.3-fpm.sock", "8.3"),
+    ("/run/php/php8.4-fpm.sock", "8.4"),
+    ("/var/run/php/php8.1-fpm.sock", "8.1"),
+    ("/var/run/php/php8.2-fpm.sock", "8.2"),
+    ("/var/run/php/php8.3-fpm.sock", "8.3"),
+    ("/var/run/php/php8.4-fpm.sock", "8.4"),
+    # Fedora/RHEL
+    ("/run/php-fpm/www.sock", "Default"),
+    ("/var/run/php-fpm/www.sock", "Default"),
 ]
+
+
+
+@dataclass
+class PhpVersion:
+    """Represents an available PHP-FPM version."""
+    version: str  # e.g., "8.2", "8.3", "Default"
+    socket_path: str  # Full path to socket
+
+    @property
+    def display_name(self) -> str:
+        """Display name for UI."""
+        if self.version == "Default":
+            return "PHP (Default)"
+        return f"PHP {self.version}"
 
 
 @dataclass
@@ -47,6 +77,25 @@ class VirtualHost:
     enabled: bool
     server_name: Optional[str] = None
     document_root: Optional[str] = None
+    php_socket: Optional[str] = None  # Current PHP-FPM socket
+
+    @property
+    def php_version(self) -> str:
+        """Get PHP version label from socket path."""
+        if not self.php_socket:
+            return "Unknown"
+        # Try to extract version from socket path
+        for pattern, version in PHP_FPM_SOCKET_PATTERNS:
+            if pattern == self.php_socket:
+                return version
+        # Try to parse from socket filename
+        match = re.search(r'php(\d+\.?\d*)', self.php_socket)
+        if match:
+            ver = match.group(1)
+            if '.' not in ver and len(ver) == 2:
+                return f"{ver[0]}.{ver[1]}"
+            return ver
+        return "Default"
 
 
 def _detect_nginx_style() -> dict:
@@ -61,12 +110,35 @@ def _detect_nginx_style() -> dict:
     return NGINX_PATHS["debian"]
 
 
+def get_available_php_versions() -> list[PhpVersion]:
+    """Get all available PHP-FPM versions (sockets that exist)."""
+    versions = []
+    seen_versions = set()
+
+    for socket_path, version in PHP_FPM_SOCKET_PATTERNS:
+        if Path(socket_path).exists() and version not in seen_versions:
+            versions.append(PhpVersion(version=version, socket_path=socket_path))
+            seen_versions.add(version)
+
+    # Sort: Default first, then by version number descending
+    def sort_key(v):
+        if v.version == "Default":
+            return (0, "")
+        return (1, v.version)
+
+    return sorted(versions, key=sort_key, reverse=True)
+
+
 def _detect_php_fpm_socket() -> str:
-    """Detect the PHP-FPM socket path."""
-    for socket_path in PHP_FPM_SOCKET_PATHS:
-        if Path(socket_path).exists():
-            return socket_path
-    # Default fallback
+    """Detect the default PHP-FPM socket path."""
+    versions = get_available_php_versions()
+    if versions:
+        # Prefer Default, otherwise first available
+        for v in versions:
+            if v.version == "Default":
+                return v.socket_path
+        return versions[0].socket_path
+    # Fallback
     return "/run/php-fpm/php-fpm.sock"
 
 
@@ -132,10 +204,11 @@ def _run_shell(cmd: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-def _parse_vhost_config(config_path: Path) -> tuple[Optional[str], Optional[str]]:
-    """Parse server_name and root from nginx config."""
+def _parse_vhost_config(config_path: Path) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Parse server_name, root, and php socket from nginx config."""
     server_name = None
     document_root = None
+    php_socket = None
 
     try:
         content = config_path.read_text()
@@ -150,10 +223,15 @@ def _parse_vhost_config(config_path: Path) -> tuple[Optional[str], Optional[str]
         if match:
             document_root = match.group(1).strip()
 
+        # Extract PHP-FPM socket from fastcgi_pass
+        match = re.search(r'fastcgi_pass\s+unix:([^;]+);', content)
+        if match:
+            php_socket = match.group(1).strip()
+
     except Exception:
         pass
 
-    return server_name, document_root
+    return server_name, document_root, php_socket
 
 
 def _is_vhost_config(config_path: Path) -> bool:
@@ -187,13 +265,14 @@ def get_virtual_hosts() -> list[VirtualHost]:
 
         for config_file in sites_available.iterdir():
             if config_file.is_file() and not config_file.name.startswith('.'):
-                server_name, document_root = _parse_vhost_config(config_file)
+                server_name, document_root, php_socket = _parse_vhost_config(config_file)
                 vhosts.append(VirtualHost(
                     name=config_file.name,
                     config_path=config_file,
                     enabled=config_file.name in enabled_sites,
                     server_name=server_name,
-                    document_root=document_root
+                    document_root=document_root,
+                    php_socket=php_socket
                 ))
     else:
         # conf.d style: all .conf files are enabled
@@ -201,27 +280,28 @@ def get_virtual_hosts() -> list[VirtualHost]:
             # Only include .conf files that contain server blocks
             if config_file.is_file() and config_file.suffix == '.conf':
                 if _is_vhost_config(config_file):
-                    server_name, document_root = _parse_vhost_config(config_file)
-                    # Check if disabled (renamed to .conf.disabled)
+                    server_name, document_root, php_socket = _parse_vhost_config(config_file)
                     vhosts.append(VirtualHost(
                         name=config_file.stem,  # Remove .conf
                         config_path=config_file,
                         enabled=True,
                         server_name=server_name,
-                        document_root=document_root
+                        document_root=document_root,
+                        php_socket=php_socket
                     ))
 
         # Also check for disabled configs (.conf.disabled)
         for config_file in sites_available.iterdir():
             if config_file.is_file() and config_file.name.endswith('.conf.disabled'):
                 if _is_vhost_config(config_file):
-                    server_name, document_root = _parse_vhost_config(config_file)
+                    server_name, document_root, php_socket = _parse_vhost_config(config_file)
                     vhosts.append(VirtualHost(
                         name=config_file.name.replace('.conf.disabled', ''),
                         config_path=config_file,
                         enabled=False,
                         server_name=server_name,
-                        document_root=document_root
+                        document_root=document_root,
+                        php_socket=php_socket
                     ))
 
     return sorted(vhosts, key=lambda v: v.name)
@@ -311,8 +391,15 @@ def disable_vhost(name: str) -> tuple[bool, str]:
     return True, "Virtual host disabled"
 
 
-def create_vhost(name: str, server_name: str, document_root: str) -> tuple[bool, str]:
-    """Create a new virtual host."""
+def create_vhost(name: str, server_name: str, document_root: str, php_socket: Optional[str] = None) -> tuple[bool, str]:
+    """Create a new virtual host.
+
+    Args:
+        name: Config file name
+        server_name: Domain name
+        document_root: Path to document root
+        php_socket: Optional PHP-FPM socket path (auto-detected if None)
+    """
     nginx_style = _detect_nginx_style()
     uses_symlinks = nginx_style["uses_symlinks"]
 
@@ -331,8 +418,9 @@ def create_vhost(name: str, server_name: str, document_root: str) -> tuple[bool,
         if not success:
             return False, f"Failed to create document root: {output}"
 
-    # Detect PHP-FPM socket and generate config
-    php_socket = _detect_php_fpm_socket()
+    # Use provided socket or detect default
+    if not php_socket:
+        php_socket = _detect_php_fpm_socket()
     template = _get_vhost_template(php_socket)
     config_content = template.format(
         name=name,
@@ -425,3 +513,39 @@ def has_nginx_sites() -> bool:
     """Check if nginx sites directory exists."""
     nginx_style = _detect_nginx_style()
     return nginx_style["available"].exists()
+
+
+def change_vhost_php_version(config_path: Path, new_socket: str) -> tuple[bool, str]:
+    """Change the PHP-FPM socket for a virtual host."""
+    if not config_path.exists():
+        return False, f"Config file not found: {config_path}"
+
+    try:
+        content = config_path.read_text()
+    except Exception as e:
+        return False, f"Failed to read config: {e}"
+
+    # Replace fastcgi_pass line
+    new_content = re.sub(
+        r'(fastcgi_pass\s+unix:)[^;]+(;)',
+        rf'\1{new_socket}\2',
+        content
+    )
+
+    if new_content == content:
+        return False, "No fastcgi_pass directive found in config"
+
+    # Write new content using pkexec
+    # Escape single quotes in content
+    escaped_content = new_content.replace("'", "'\\''")
+    success, output = _run_shell(
+        f"echo '{escaped_content}' | pkexec tee {config_path} > /dev/null"
+    )
+
+    if not success:
+        return False, f"Failed to write config: {output}"
+
+    # Reload nginx
+    _run_command(["pkexec", "systemctl", "reload", "nginx"])
+
+    return True, "PHP version changed"

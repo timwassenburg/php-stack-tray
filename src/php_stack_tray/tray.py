@@ -162,6 +162,7 @@ class NewVhostDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("New Site")
         self.setMinimumWidth(450)
+        self._php_versions = []
         self._setup_ui()
         self.result_data = None
 
@@ -191,6 +192,16 @@ class NewVhostDialog(QDialog):
         docroot_layout.addWidget(browse_btn)
 
         form.addRow("Document root:", docroot_layout)
+
+        # PHP version dropdown
+        self.php_version_combo = QComboBox()
+        self._php_versions = vhosts.get_available_php_versions()
+        if self._php_versions:
+            for v in self._php_versions:
+                self.php_version_combo.addItem(v.display_name, v.socket_path)
+        else:
+            self.php_version_combo.addItem("PHP (Auto-detect)", None)
+        form.addRow("PHP version:", self.php_version_combo)
 
         self.add_hosts_checkbox = QCheckBox("Add to /etc/hosts")
         self.add_hosts_checkbox.setChecked(True)
@@ -251,6 +262,7 @@ class NewVhostDialog(QDialog):
             "name": name,
             "server_name": server_name,
             "docroot": docroot,
+            "php_socket": self.php_version_combo.currentData(),
             "add_hosts": self.add_hosts_checkbox.isChecked(),
             "enable": self.enable_checkbox.isChecked()
         }
@@ -263,7 +275,7 @@ class SitesDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Sites Manager")
-        self.setMinimumSize(700, 400)
+        self.setMinimumSize(800, 400)
         self._setup_ui()
         self._load_sites()
 
@@ -272,8 +284,8 @@ class SitesDialog(QDialog):
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Name", "Domain", "Document Root", "Status"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Name", "Domain", "Document Root", "PHP", "Status"])
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -285,9 +297,11 @@ class SitesDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(0, 120)
         self.table.setColumnWidth(1, 150)
-        self.table.setColumnWidth(3, 80)
+        self.table.setColumnWidth(3, 70)
+        self.table.setColumnWidth(4, 80)
 
         layout.addWidget(self.table)
 
@@ -299,6 +313,12 @@ class SitesDialog(QDialog):
         self.toggle_btn.clicked.connect(self._toggle_site)
         self.toggle_btn.setEnabled(False)
         action_layout.addWidget(self.toggle_btn)
+
+        self.php_btn = QPushButton("Change PHP")
+        self.php_btn.setIcon(QIcon.fromTheme("applications-development"))
+        self.php_btn.clicked.connect(self._change_php_version)
+        self.php_btn.setEnabled(False)
+        action_layout.addWidget(self.php_btn)
 
         self.browser_btn = QPushButton("Open in Browser")
         self.browser_btn.setIcon(QIcon.fromTheme("internet-web-browser"))
@@ -353,10 +373,11 @@ class SitesDialog(QDialog):
             self.table.setItem(row, 0, QTableWidgetItem(vh.name))
             self.table.setItem(row, 1, QTableWidgetItem(vh.server_name or "-"))
             self.table.setItem(row, 2, QTableWidgetItem(vh.document_root or "-"))
+            self.table.setItem(row, 3, QTableWidgetItem(vh.php_version))
 
             status_item = QTableWidgetItem("Enabled" if vh.enabled else "Disabled")
             status_item.setForeground(QColor("#2ecc71" if vh.enabled else "#95a5a6"))
-            self.table.setItem(row, 3, status_item)
+            self.table.setItem(row, 4, status_item)
 
         self._on_selection_changed()
 
@@ -374,8 +395,10 @@ class SitesDialog(QDialog):
         """Update button states based on selection."""
         site = self._get_selected_site()
         has_selection = site is not None
+        has_php_versions = len(vhosts.get_available_php_versions()) > 1
 
         self.toggle_btn.setEnabled(has_selection)
+        self.php_btn.setEnabled(has_selection and has_php_versions)
         self.browser_btn.setEnabled(has_selection and site.enabled if site else False)
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
@@ -442,7 +465,8 @@ class SitesDialog(QDialog):
             success, message = vhosts.create_vhost(
                 data["name"],
                 data["server_name"],
-                data["docroot"]
+                data["docroot"],
+                data["php_socket"]
             )
 
             if success:
@@ -453,6 +477,62 @@ class SitesDialog(QDialog):
                 self._load_sites()
             else:
                 QMessageBox.warning(self, "Error", message)
+
+    def _change_php_version(self) -> None:
+        """Change PHP version for the selected site."""
+        site = self._get_selected_site()
+        if not site:
+            return
+
+        # Get available PHP versions
+        php_versions_list = vhosts.get_available_php_versions()
+        if not php_versions_list:
+            QMessageBox.warning(self, "Error", "No PHP versions found")
+            return
+
+        # Create a simple dialog with dropdown
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Change PHP Version")
+        dialog.setMinimumWidth(300)
+
+        layout = QVBoxLayout(dialog)
+
+        # Label
+        layout.addWidget(QLabel(f"Select PHP version for '{site.name}':"))
+
+        # Dropdown
+        combo = QComboBox()
+        current_index = 0
+        for i, v in enumerate(php_versions_list):
+            combo.addItem(v.display_name, v.socket_path)
+            if v.socket_path == site.php_socket:
+                current_index = i
+        combo.setCurrentIndex(current_index)
+        layout.addWidget(combo)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+
+        ok_btn = QPushButton("Change")
+        ok_btn.clicked.connect(dialog.accept)
+        ok_btn.setDefault(True)
+        btn_layout.addWidget(ok_btn)
+
+        layout.addLayout(btn_layout)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_socket = combo.currentData()
+            if new_socket and new_socket != site.php_socket:
+                success, message = vhosts.change_vhost_php_version(site.config_path, new_socket)
+                if success:
+                    self._load_sites()
+                else:
+                    QMessageBox.warning(self, "Error", message)
 
 
 class PHPStackTray:
